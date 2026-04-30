@@ -2,7 +2,7 @@
 <html lang="nl">
 <head>
     <meta charset="UTF-8">
-    <title>Wafflx Admin - FIXED</title>
+    <title>Wafflx Beheer - Schone Code</title>
     <style>
         body { font-family: sans-serif; background: #121212; color: white; padding: 20px; }
         .card { background: #1e1e1e; padding: 20px; border-radius: 12px; max-width: 900px; margin: auto; border: 1px solid #333; }
@@ -11,8 +11,9 @@
         .row { display: flex; gap: 10px; margin-bottom: 5px; }
         button { padding: 10px; cursor: pointer; border: none; border-radius: 5px; font-weight: bold; margin-top: 5px; }
         .btn-save { background: #2ecc71; color: white; width: 100%; font-size: 1.5rem; padding: 20px; margin-top: 20px; }
-        .btn-add { background: #f1c40f; color: black; }
-        h3 { color: #f1c40f; margin-top: 15px; border-bottom: 1px solid #444; }
+        .btn-add { background: #f1c40f; color: black; font-size: 0.9rem; }
+        .btn-del { background: #e74c3c; color: white; }
+        h3 { color: #f1c40f; margin-top: 15px; border-bottom: 1px solid #444; margin-bottom: 10px; }
     </style>
 </head>
 <body>
@@ -30,7 +31,7 @@
 
     <hr>
     <div id="assortiment-cont"></div>
-    <button class="btn-add" onclick="voegGroep()">+ NIEUWE PRODUCTGROEP</button>
+    <button class="btn-add" style="padding: 15px;" onclick="voegGroep()">+ NIEUWE PRODUCTGROEP</button>
 
     <button class="btn-save" onclick="secureSave()">💾 NU OPSLAAN</button>
 </div>
@@ -38,7 +39,6 @@
 <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-database-compat.js"></script>
 <script>
-    // FIX: De cite-tekst is hier verwijderd zodat de code weer geldig is
     const config = { databaseURL: "https://wafflx-default-rtdb.europe-west1.firebasedatabase.app" };
     firebase.initializeApp(config);
     const db = firebase.database().ref('/');
@@ -46,7 +46,6 @@
     const SLEUTEL = "gamingopanl"; 
     let localData = { instellingen: {}, assortiment: [] };
 
-    // Data inladen en velden vullen[cite: 1]
     db.on('value', snap => {
         const d = snap.val();
         if(d) {
@@ -64,12 +63,22 @@
         cont.innerHTML = '';
         (localData.assortiment || []).forEach((cat, cIdx) => {
             let html = `<div class="prod-group">
-                <input type="text" value="${cat.categorie}" oninput="localData.assortiment[${cIdx}].categorie=this.value" style="font-weight:bold;">
+                <input type="text" value="${cat.categorie}" oninput="localData.assortiment[${cIdx}].categorie=this.value" style="font-weight:bold; font-size: 1.2rem;">
+                
                 <h3>Maten & Prijzen</h3>
                 <div id="maten-${cIdx}">${renderItems(cat.maten, cIdx, 'maten')}</div>
                 <button class="btn-add" onclick="addItem(${cIdx}, 'maten')">+ Maat</button>
+
+                <h3>Smaken</h3>
+                <div id="smaken-${cIdx}">${renderItems(cat.smaken, cIdx, 'smaken')}</div>
+                <button class="btn-add" onclick="addItem(${cIdx}, 'smaken')">+ Smaak</button>
+
+                <h3>Toppings</h3>
+                <div id="toppings-${cIdx}">${renderItems(cat.toppings, cIdx, 'toppings')}</div>
+                <button class="btn-add" onclick="addItem(${cIdx}, 'toppings')">+ Topping</button>
+                
                 <br><br>
-                <button style="background:#e74c3c; color:white;" onclick="localData.assortiment.splice(${cIdx},1);render()">🗑 GROEP WEG</button>
+                <button class="btn-del" onclick="localData.assortiment.splice(${cIdx},1);render()">🗑 GROEP WEG</button>
             </div>`;
             cont.innerHTML += html;
         });
@@ -80,6 +89,7 @@
             <div class="row">
                 <input type="text" value="${item.naam}" oninput="localData.assortiment[${cIdx}].${type}[${i}].naam=this.value">
                 <input type="number" step="0.01" value="${item.prijs}" oninput="localData.assortiment[${cIdx}].${type}[${i}].prijs=parseFloat(this.value)">
+                <button class="btn-del" onclick="localData.assortiment[${cIdx}].${type}.splice(${i},1);render()">X</button>
             </div>
         `).join('');
     }
@@ -100,23 +110,20 @@
         const pw = prompt("Wachtwoord:");
         if (pw !== SLEUTEL) return alert("Fout wachtwoord!");
 
-        // Pak de waarden direct uit de inputs om leegloop te voorkomen[cite: 1]
-        const instellingen = {
-            telefoon: document.getElementById('telefoon').value,
-            rekeningnr: document.getElementById('iban').value,
-            email: document.getElementById('email_instelling').value,
-            winkel: document.getElementById('winkel_naam').value
-        };
-
         const dataSturen = {
             admin_sleutel: SLEUTEL,
-            instellingen: instellingen,
+            instellingen: {
+                telefoon: document.getElementById('telefoon').value,
+                rekeningnr: document.getElementById('iban').value,
+                email: document.getElementById('email_instelling').value,
+                winkel: document.getElementById('winkel_naam').value
+            },
             assortiment: localData.assortiment || []
         };
 
         db.set(dataSturen)
-            .then(() => alert("✅ SUCCES: Alles staat live!"))
-            .catch(err => alert("❌ FIREBASE WEIGERT: " + err.message));
+            .then(() => alert("✅ ALLES LIVE GEZET!"))
+            .catch(err => alert("❌ FOUT: " + err.message));
     }
 </script>
 </body>
