@@ -2,7 +2,7 @@
 <html lang="nl">
 <head>
     <meta charset="UTF-8">
-    <title>Wafflx Admin - FINAL FIX</title>
+    <title>Wafflx Admin - FIXED</title>
     <style>
         body { font-family: sans-serif; background: #121212; color: white; padding: 20px; }
         .card { background: #1e1e1e; padding: 20px; border-radius: 12px; max-width: 900px; margin: auto; border: 1px solid #333; }
@@ -38,13 +38,15 @@
 <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-database-compat.js"></script>
 <script>
-    const config = { databaseURL: "https://wafflx-default-rtdb.europe-west1.firebasedatabase.app" };[cite: 1]
+    // FIX: De cite-tekst is hier verwijderd zodat de code weer geldig is
+    const config = { databaseURL: "https://wafflx-default-rtdb.europe-west1.firebasedatabase.app" };
     firebase.initializeApp(config);
     const db = firebase.database().ref('/');
     
     const SLEUTEL = "gamingopanl"; 
     let localData = { instellingen: {}, assortiment: [] };
 
+    // Data inladen en velden vullen[cite: 1]
     db.on('value', snap => {
         const d = snap.val();
         if(d) {
@@ -98,19 +100,21 @@
         const pw = prompt("Wachtwoord:");
         if (pw !== SLEUTEL) return alert("Fout wachtwoord!");
 
-        // We bouwen een SCHOON object om te sturen
+        // Pak de waarden direct uit de inputs om leegloop te voorkomen[cite: 1]
+        const instellingen = {
+            telefoon: document.getElementById('telefoon').value,
+            rekeningnr: document.getElementById('iban').value,
+            email: document.getElementById('email_instelling').value,
+            winkel: document.getElementById('winkel_naam').value
+        };
+
         const dataSturen = {
-            admin_sleutel: SLEUTEL, // Moet op het hoogste niveau staan voor de Rules
-            instellingen: {
-                telefoon: document.getElementById('telefoon').value,
-                rekeningnr: document.getElementById('iban').value,
-                email: document.getElementById('email_instelling').value,
-                winkel: document.getElementById('winkel_naam').value
-            },
+            admin_sleutel: SLEUTEL,
+            instellingen: instellingen,
             assortiment: localData.assortiment || []
         };
 
-        db.set(dataSturen)[cite: 1]
+        db.set(dataSturen)
             .then(() => alert("✅ SUCCES: Alles staat live!"))
             .catch(err => alert("❌ FIREBASE WEIGERT: " + err.message));
     }
