@@ -126,28 +126,29 @@
     }
 
     function verzend(type) {
-    const msg = bouwTekst();
-    const inst = shopData.instellingen || {};
+    const msg = bouwBon();
+    const inst = data.instellingen || {};
     
-    // Pak het emailadres uit Firebase, anders gebruik je een fallback zodat de knop NOOIT dood is
-    const emailAdres = inst.email || "bestelling@jouwdomein.nl"; 
-    const telefoonNummer = inst.telefoon || "";
+    // Check of de data wel echt uit je Firebase komt
+    const mail = inst.email;
+    const tel = inst.telefoon;
 
-    if(type === 'wa') {
-        window.open(`https://wa.me/${telefoonNummer}?text=${encodeURIComponent(msg)}`, '_blank');
+    if (type === 'wa') {
+        if (!tel) return alert("FOUT: Geen telefoonnummer in database!");
+        window.open(`https://wa.me/${tel}?text=${encodeURIComponent(msg)}`, '_blank');
     } else {
-        // We bouwen de link handmatig en openen hem in een nieuw venster/tab om blokkades te voorkomen
-        const mailtoLink = `mailto:${emailAdres}?subject=Nieuwe Bestelling&body=${encodeURIComponent(msg)}`;
+        // De mail-fix:
+        if (!mail || mail.includes("voorbeeld.nl")) {
+            return alert("FOUT: Geen geldig e-mailadres gevonden in Firebase! Check je admin-paneel.");
+        }
+
+        // We openen de mail nu directer om browser-blokkades te omzeilen
+        const link = `mailto:${mail}?subject=Wafflx Bestelling&body=${encodeURIComponent(msg)}`;
         
-        // Probeer eerst de directe methode
-        window.location.href = mailtoLink;
-        
-        // Fallback voor sommige mobiele browsers die location.href blokkeren
-        setTimeout(() => {
-            if (!document.hidden) {
-                window.open(mailtoLink, '_self');
-            }
-        }, 500);
+        // Dit is de meest brute manier om de mail-app te dwingen te openen
+        const a = document.createElement('a');
+        a.href = link;
+        a.click();
     }
 }
 
