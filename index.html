@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Wafflx Bestelsysteem</title>
+    <title>Wafflx Bestellen</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         body { font-family: sans-serif; background: #121212; color: white; padding: 15px; }
@@ -33,15 +33,12 @@
 
     <div class="step">
         <h2>1. Kies Product</h2>
-        <select id="sel-cat" onchange="updateConfig()"><option value="">-- Kies een product --</option></select>
+        <select id="sel-cat" onchange="updateConfig()"><option value="">-- Selecteer --</option></select>
         
         <div id="wafel-opties" class="hidden">
-            <h2>2. Maat</h2>
-            <select id="sel-maat"></select>
-            <h2>3. Smaak</h2>
-            <select id="sel-smaak"></select>
-            <h2>4. Toppings (Houd CTRL ingedrukt)</h2>
-            <select id="sel-top" class="multi-select" multiple></select>
+            <h2>2. Maat</h2><select id="sel-maat"></select>
+            <h2>3. Smaak</h2><select id="sel-smaak"></select>
+            <h2>4. Toppings (Houd CTRL ingedrukt)</h2><select id="sel-top" class="multi-select" multiple></select>
             <button class="btn btn-add" onclick="voegToe()">➕ VOEG TOE AAN MANDJE</button>
         </div>
     </div>
@@ -51,8 +48,8 @@
         <div id="mandje-inhoud"></div>
         <div id="totaal-sectie">Totaal: €0.00</div>
         
-        <button class="btn btn-wa" onclick="verzendBestelling('wa')">💬 VIA WHATSAPP</button>
-        <button class="btn btn-mail" onclick="verzendBestelling('mail')">📧 VIA E-MAIL</button>
+        <button class="btn btn-wa" onclick="verzend('wa')">💬 WHATSAPP</button>
+        <button class="btn btn-mail" onclick="verzend('mail')">📧 E-MAIL</button>
         <button class="btn btn-pdf" onclick="maakPDF()">📄 DOWNLOAD PDF</button>
     </div>
 </div>
@@ -78,15 +75,13 @@
 
     function updateConfig() {
         const idx = document.getElementById('sel-cat').value;
-        const configDiv = document.getElementById('wafel-opties');
-        if(!idx) return configDiv.classList.add('hidden');
-        
-        configDiv.classList.remove('hidden');
+        const div = document.getElementById('wafel-opties');
+        if(!idx) return div.classList.add('hidden');
+        div.classList.remove('hidden');
         const cat = shopData.assortiment[idx];
-        
-        document.getElementById('sel-maat').innerHTML = cat.maten.map((m, i) => `<option value="${i}">${m.naam} (€${m.prijs.toFixed(2)})</option>`).join('');
-        document.getElementById('sel-smaak').innerHTML = cat.smaken.map((s, i) => `<option value="${i}">${s.naam} (+€${s.prijs.toFixed(2)})</option>`).join('');
-        document.getElementById('sel-top').innerHTML = cat.toppings.map((t, i) => `<option value="${i}">${t.naam} (+€${t.prijs.toFixed(2)})</option>`).join('');
+        document.getElementById('sel-maat').innerHTML = (cat.maten || []).map((m, i) => `<option value="${i}">${m.naam} (€${parseFloat(m.prijs).toFixed(2)})</option>`).join('');
+        document.getElementById('sel-smaak').innerHTML = (cat.smaken || []).map((s, i) => `<option value="${i}">${s.naam} (+€${parseFloat(s.prijs).toFixed(2)})</option>`).join('');
+        document.getElementById('sel-top').innerHTML = (cat.toppings || []).map((t, i) => `<option value="${i}">${t.naam} (+€${parseFloat(t.prijs).toFixed(2)})</option>`).join('');
     }
 
     function voegToe() {
@@ -94,14 +89,14 @@
         const cat = shopData.assortiment[cIdx];
         const m = cat.maten[document.getElementById('sel-maat').value];
         const s = cat.smaken[document.getElementById('sel-smaak').value];
-        const chosenTops = Array.from(document.getElementById('sel-top').selectedOptions).map(o => cat.toppings[o.value]);
+        const tops = Array.from(document.getElementById('sel-top').selectedOptions).map(o => cat.toppings[o.value]);
 
-        let prijs = m.prijs + s.prijs;
-        chosenTops.forEach(t => prijs += t.prijs);
+        let prijs = parseFloat(m.prijs) + parseFloat(s.prijs);
+        tops.forEach(t => prijs += parseFloat(t.prijs));
 
         mandje.push({
             naam: cat.categorie,
-            details: `${m.naam}, ${s.naam}${chosenTops.length ? ' + ' + chosenTops.map(t=>t.naam).join(', ') : ''}`,
+            details: `${m.naam}, ${s.naam}${tops.length ? ' + ' + tops.map(t=>t.naam).join(', ') : ''}`,
             prijs: prijs
         });
         tekenMandje();
@@ -112,12 +107,10 @@
         const mDiv = document.getElementById('winkelmandje');
         div.innerHTML = '';
         let totaal = 0;
-
         mandje.forEach((it, i) => {
             totaal += it.prijs;
             div.innerHTML += `<div class="mandje-item"><strong>${it.naam}</strong><br><small>${it.details}</small><br>€${it.prijs.toFixed(2)}<span class="remove-btn" onclick="verwijder(${i})">✖</span></div>`;
         });
-
         document.getElementById('totaal-sectie').innerText = `Totaal: €${totaal.toFixed(2)}`;
         mandje.length > 0 ? mDiv.classList.remove('hidden') : mDiv.classList.add('hidden');
     }
@@ -132,14 +125,15 @@
         return t;
     }
 
-    function verzendBestelling(type) {
+    function verzend(type) {
         const msg = bouwTekst();
         const inst = shopData.instellingen || {};
         if(type === 'wa') {
-            window.open(`https://wa.me/${inst.telefoon || ''}?text=${encodeURIComponent(msg)}`, '_blank');
+            window.open(`https://wa.me/${inst.telefoon}?text=${encodeURIComponent(msg)}`, '_blank');
         } else {
-            const mail = inst.email || "bestelling@wafflx.nl";
-            window.location.href = `mailto:${mail}?subject=Nieuwe Bestelling&body=${encodeURIComponent(msg)}`;
+            // FIX: Mailto met gegarandeerde variabelen uit Firebase[cite: 1]
+            const mailLink = `mailto:${inst.email}?subject=Nieuwe Bestelling&body=${encodeURIComponent(msg)}`;
+            window.location.href = mailLink;
         }
     }
 
