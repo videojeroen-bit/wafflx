@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wafflx - Bestellen</title>
+    <style>
+        body { font-family: sans-serif; background: #121212; color: white; padding: 15px; margin: 0; }
+        .card { background: #1e1e1e; padding: 15px; border-radius: 12px; margin-bottom: 15px; border: 1px solid #333; }
+        .option { display: flex; justify-content: space-between; padding: 12px; background: #2c2c2c; margin: 5px 0; border-radius: 8px; cursor: pointer; border: 2px solid transparent; }
+        .selected { border-color: #f1c40f; background: #3d3515; }
+        .btn { width: 100%; padding: 15px; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; margin-top: 10px; font-size: 1rem; }
+        .btn-add { background: #f1c40f; color: black; }
+        .btn-pay { background: #27ae60; color: white; }
+        #winkelmand { margin-top: 30px; border-top: 2px solid #444; padding-top: 20px; }
+        .cart-item { background: #252525; padding: 10px; border-radius: 8px; margin-bottom: 10px; font-size: 0.9rem; border-left: 4px solid #f1c40f; }
+        input#klantnaam { width: 100%; padding: 12px; border-radius: 8px; border: none; margin-bottom: 20px; box-sizing: border-box; background: #2c2c2c; color: white; }
+    </style>
+</head>
+<body>
+
+    <h1>🧇 Wafflx & Snacks</h1>
+    <input type="text" id="klantnaam" placeholder="Vul je naam in...">
+
+    <div class="card">
+        <h3>1. Wat wil je bestellen?</h3>
+        <div id="cat-box"></div>
+    </div>
+
+    <div id="keuze-sectie" style="display:none;">
+        <div class="card">
+            <h3>2. Kies Maat</h3>
+            <div id="maten-box"></div>
+        </div>
+        <div class="card">
+            <h3>3. Kies Smaak</h3>
+            <div id="smaken-box"></div>
+        </div>
+        <div class="card">
+            <h3>4. Toppings</h3>
+            <div id="toppings-box"></div>
+        </div>
+        <button class="btn btn-add" onclick="voegToe()">🛒 IN MANDJE GOOIEN</button>
+    </div>
+
+    <div id="winkelmand">
+        <h2>🛍️ Jouw Mandje</h2>
+        <div id="mandje-inhoud">Leeg...</div>
+        <h3 style="text-align:right">Totaal: €<span id="totaal-prijs">0.00</span></h3>
+        <button class="btn btn-pay" onclick="stuurWhatsApp()">📱 BESTELLEN VIA WHATSAPP</button>
+    </div>
+
+<script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-database-compat.js"></script>
+<script>
+    const config = { databaseURL: "https://wafflx-default-rtdb.europe-west1.firebasedatabase.app" };
+    firebase.initializeApp(config);
+    const db = firebase.database().ref('/');
+
+    let data = {};
+    let sCat = null, sM = null, sS = null, sT = [];
+    let mandje = [];
+
+    db.on('value', snap => { data = snap.val(); renderCats(); });
+
+    function renderCats() {
+        const box = document.getElementById('cat-box');
+        box.innerHTML = '';
+        data.assortiment.forEach((c, i) => {
+            box.innerHTML += `<div class="option ${sCat===i?'selected':''}" onclick="kiesCat(${i})">${c.categorie}</div>`;
+        });
+    }
+
+    function kiesCat(i) {
+        sCat = i; sM = null; sS = null; sT = [];
+        document.getElementById('keuze-sectie').style.display = 'block';
+        renderCats(); renderOpties();
+    }
+
+    function renderOpties() {
+        const c = data.assortiment[sCat];
+        renderLijst(c.maten, 'maten-box', (i) => sM = i, () => sM);
+        renderLijst(c.smaken, 'smaken-box', (i) => sS = i, () => sS);
+        
+        const tBox = document.getElementById('toppings-box');
+        tBox.innerHTML = '';
+        c.toppings.forEach((t, i) => {
+            tBox.innerHTML += `<div class="option ${sT.includes(i)?'selected':''}" onclick="toggleT(${i})">
+                <span>${t.naam}</span> <span>+€${t.prijs.toFixed(2)}</span>
+            </div>`;
+        });
+    }
+
+    function renderLijst(l, id, setF, getF) {
+        const b = document.getElementById(id);
+        b.innerHTML = '';
+        l.forEach((item, i) => {
+            b.innerHTML += `<div class="option ${getF()===i?'selected':''}" onclick="(${setF})(${i});renderOpties()">
+                <span>${item.naam}</span> <span>€${item.prijs.toFixed(2)}</span>
+            </div>`;
+        });
+    }
+
+    function toggleT(i) {
+        if(sT.includes(i)) sT = sT.filter(x => x !== i); else sT.push(i);
+        renderOpties();
+    }
+
+    function voegToe() {
+        if(sM === null || sS === null) return alert("Kies maat en smaak!");
+        const c = data.assortiment[sCat];
+        let p = c.maten[sM].prijs + c.smaken[sS].prijs;
+        let tops = sT.map(i => { p += c.toppings[i].prijs; return c.toppings[i].naam; });
+
+        mandje.push({
+            txt: `${c.categorie}: ${c.maten[sM].naam} (${c.smaken[sS].naam})`,
+            extra: tops.join(', ') || 'Geen extra toppings',
+            prijs: p
+        });
+        
+        sCat = null; document.getElementById('keuze-sectie').style.display = 'none';
+        renderCats(); renderMandje();
+    }
+
+    function renderMandje() {
+        const cont = document.getElementById('mandje-inhoud');
+        cont.innerHTML = '';
+        let tot = 0;
+        mandje.forEach(item => {
+            tot += item.prijs;
+            cont.innerHTML += `<div class="cart-item"><strong>${item.txt}</strong><br><small>${item.extra}</small><br>€${item.prijs.toFixed(2)}</div>`;
+        });
+        document.getElementById('totaal-prijs').innerText = tot.toFixed(2);
+    }
+
+    function stuurWhatsApp() {
+        const naam = document.getElementById('klantnaam').value;
+        if(!naam || mandje.length === 0) return alert("Naam vergeten of mandje leeg!");
+        
+        const iban = data.instellingen.rekeningnr;
+        let msg = `Bestelling voor *${naam}*:%0A%0A`;
+        mandje.forEach(w => msg += `• ${w.txt}%0A  _Tops: ${w.extra}_%0A  Prijs: €${w.prijs.toFixed(2)}%0A%0A`);
+        msg += `*Totaal: €${document.getElementById('totaal-prijs').innerText}*%0A%0A`;
+        msg += `Betaal s.v.p. op IBAN: *${iban}*`;
+        
+        window.open(`https://wa.me/${data.instellingen.telefoon}?text=${msg}`);
+    }
+</script>
+</body>
+</html>
