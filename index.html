@@ -6,25 +6,24 @@
     <title>Wafflx Bestelsysteem</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
-        body { font-family: sans-serif; background: #121212; color: white; padding: 20px; }
+        body { font-family: sans-serif; background: #121212; color: white; padding: 15px; }
         .container { max-width: 500px; margin: auto; }
         .step { background: #1e1e1e; padding: 20px; border-radius: 12px; margin-bottom: 15px; border: 1px solid #333; }
-        h2 { color: #f1c40f; font-size: 1rem; margin-bottom: 10px; }
-        select, input { 
-            width: 100%; padding: 12px; background: #252525; border: 1px solid #444; 
-            color: white; border-radius: 8px; font-size: 1rem; margin-bottom: 10px;
-        }
+        h2 { color: #f1c40f; font-size: 1rem; margin-bottom: 10px; text-transform: uppercase; }
+        select, input { width: 100%; padding: 12px; background: #252525; border: 1px solid #444; color: white; border-radius: 8px; margin-bottom: 10px; }
         .multi-select { height: 100px; }
-        .btn { width: 100%; padding: 15px; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; margin-top: 10px; display: flex; align-items: center; justify-content: center; gap: 10px; }
-        .btn-add { background: #f1c40f; color: black; margin-bottom: 20px; }
+        
+        /* Knoppen */
+        .btn { width: 100%; padding: 15px; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; margin-top: 10px; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 1rem; }
+        .btn-add { background: #f1c40f; color: black; border: 2px solid #000; }
         .btn-wa { background: #27ae60; color: white; }
         .btn-mail { background: #2980b9; color: white; }
         .btn-pdf { background: #e67e22; color: white; }
-        
-        .mandje-item { background: #252525; padding: 10px; border-radius: 6px; margin-bottom: 5px; border-left: 4px solid #f1c40f; position: relative; }
-        .remove-item { position: absolute; right: 10px; top: 10px; color: #e74c3c; cursor: pointer; font-weight: bold; }
-        
-        #totaal { font-size: 1.4rem; color: #f1c40f; text-align: center; margin: 15px 0; font-weight: bold; }
+
+        /* Mandje */
+        .mandje-item { background: #2a2a2a; padding: 12px; border-radius: 8px; margin-bottom: 8px; border-left: 5px solid #f1c40f; position: relative; }
+        .remove-btn { position: absolute; right: 10px; top: 10px; color: #ff4d4d; cursor: pointer; font-weight: bold; }
+        #totaal-sectie { font-size: 1.6rem; color: #f1c40f; text-align: center; margin-top: 15px; font-weight: bold; border-top: 2px solid #333; padding-top: 15px; }
         .hidden { display: none; }
     </style>
 </head>
@@ -33,37 +32,33 @@
 <div class="container">
     <div class="step">
         <h2>Klantgegevens</h2>
-        <input type="text" id="klant_naam" placeholder="Volledige naam...">
+        <input type="text" id="klant_naam" placeholder="Je volledige naam...">
     </div>
 
     <div class="step">
         <h2>1. Kies Product</h2>
-        <select id="select-cat" onchange="updateMaten()">
-            <option value="">-- Selecteer --</option>
-        </select>
+        <select id="sel-cat" onchange="toonOpties()"><option value="">-- Kies een wafel --</option></select>
         
-        <div id="extra-opties" class="hidden">
+        <div id="wafel-config" class="hidden">
             <h2>2. Kies Maat</h2>
-            <select id="select-maat" onchange="updateSub()"></select>
-            
+            <select id="sel-maat"></select>
             <h2>3. Kies Smaak</h2>
-            <select id="select-smaak" onchange="updateSub()"></select>
+            <select id="sel-smaak"></select>
+            <h2>4. Toppings (Houd CTRL voor meer)</h2>
+            <select id="sel-top" class="multi-select" multiple></select>
             
-            <h2>4. Toppings</h2>
-            <select id="select-topping" class="multi-select" multiple onchange="updateSub()"></select>
-            
-            <button class="btn btn-add" onclick="voegToeAanMandje()">➕ VOEG TOE AAN MANDJE</button>
+            <button class="btn btn-add" onclick="voegToe()">🛒 VOEG TOE AAN MANDJE</button>
         </div>
     </div>
 
-    <div id="mandje-sectie" class="step hidden">
-        <h2>🛒 Jouw Mandje</h2>
-        <div id="mandje-lijst"></div>
-        <div id="totaal">Totaal: €0.00</div>
+    <div id="winkelmandje" class="step hidden">
+        <h2>🛍️ Jouw Bestelling</h2>
+        <div id="mandje-inhoud"></div>
+        <div id="totaal-sectie">Totaal: €0.00</div>
         
-        <button class="btn btn-wa" onclick="verstuur('wa')">💬 BESTEL VIA WHATSAPP</button>
-        <button class="btn btn-mail" onclick="verstuur('mail')">📧 BESTEL VIA E-MAIL</button>
-        <button class="btn btn-pdf" onclick="downloadPDF()">📄 PDF FACTUUR</button>
+        <button class="btn btn-wa" onclick="verzend('wa')">💬 VERZEND VIA WHATSAPP</button>
+        <button class="btn btn-mail" onclick="verzend('mail')">📧 VERZEND VIA E-MAIL</button>
+        <button class="btn btn-pdf" onclick="maakPDF()">📄 DOWNLOAD FACTUUR (PDF)</button>
     </div>
 </div>
 
@@ -74,95 +69,87 @@
     firebase.initializeApp(config);
     const db = firebase.database().ref('/');
 
-    let shopData = {};
+    let data = {};
     let mandje = [];
 
     db.on('value', snap => {
-        shopData = snap.val();
-        const sel = document.getElementById('select-cat');
-        sel.innerHTML = '<option value="">-- Selecteer --</option>';
-        shopData.assortiment.forEach((item, i) => sel.innerHTML += `<option value="${i}">${item.categorie}</option>`);
+        data = snap.val();
+        const sc = document.getElementById('sel-cat');
+        sc.innerHTML = '<option value="">-- Kies een wafel --</option>';
+        data.assortiment.forEach((a, i) => sc.innerHTML += `<option value="${i}">${a.categorie}</option>`);
     });
 
-    function updateMaten() {
-        const catIdx = document.getElementById('select-cat').value;
-        if(!catIdx) return document.getElementById('extra-opties').classList.add('hidden');
-        
-        document.getElementById('extra-opties').classList.remove('hidden');
-        const cat = shopData.assortiment[catIdx];
-        
-        const mSel = document.getElementById('select-maat');
-        mSel.innerHTML = cat.maten.map((m, i) => `<option value="${i}">${m.naam} (€${m.prijs.toFixed(2)})</option>`).join('');
-        
-        const sSel = document.getElementById('select-smaak');
-        sSel.innerHTML = (cat.smaken || []).map((s, i) => `<option value="${i}">${s.naam} (+€${s.prijs.toFixed(2)})</option>`).join('');
-        
-        const tSel = document.getElementById('select-topping');
-        tSel.innerHTML = (cat.toppings || []).map((t, i) => `<option value="${i}">${t.naam} (+€${t.prijs.toFixed(2)})</option>`).join('');
+    function toonOpties() {
+        const idx = document.getElementById('sel-cat').value;
+        const div = document.getElementById('wafel-config');
+        if(!idx) return div.classList.add('hidden');
+        div.classList.remove('hidden');
+
+        const cat = data.assortiment[idx];
+        document.getElementById('sel-maat').innerHTML = cat.maten.map((m, i) => `<option value="${i}">${m.naam} (€${m.prijs.toFixed(2)})</option>`).join('');
+        document.getElementById('sel-smaak').innerHTML = cat.smaken.map((s, i) => `<option value="${i}">${s.naam} (+€${s.prijs.toFixed(2)})</option>`).join('');
+        document.getElementById('sel-top').innerHTML = cat.toppings.map((t, i) => `<option value="${i}">${t.naam} (+€${t.prijs.toFixed(2)})</option>`).join('');
     }
 
-    function updateSub() { /* Visuele update indien nodig */ }
+    function voegToe() {
+        const cIdx = document.getElementById('sel-cat').value;
+        const cat = data.assortiment[cIdx];
+        const m = cat.maten[document.getElementById('sel-maat').value];
+        const s = cat.smaken[document.getElementById('sel-smaak').value];
+        const tops = Array.from(document.getElementById('sel-top').selectedOptions).map(o => cat.toppings[o.value]);
 
-    function voegToeAanMandje() {
-        const catIdx = document.getElementById('select-cat').value;
-        const cat = shopData.assortiment[catIdx];
-        const maat = cat.maten[document.getElementById('select-maat').value];
-        const smaak = cat.smaken[document.getElementById('select-smaak').value];
-        const tSel = document.getElementById('select-topping');
-        const toppings = Array.from(tSel.selectedOptions).map(o => cat.toppings[o.value]);
-
-        let prijs = maat.prijs + (smaak ? smaak.prijs : 0);
-        toppings.forEach(t => prijs += t.prijs);
+        let prijs = m.prijs + s.prijs;
+        tops.forEach(t => prijs += t.prijs);
 
         mandje.push({
-            naam: cat.categorie,
-            details: `${maat.naam}, ${smaak ? smaak.naam : ''} ${toppings.map(t => t.naam).join(', ')}`,
+            titel: cat.categorie,
+            details: `${m.naam}, ${s.naam}${tops.length ? ' + ' + tops.map(t=>t.naam).join(', ') : ''}`,
             prijs: prijs
         });
 
-        renderMandje();
+        tekenMandje();
     }
 
-    function renderMandje() {
-        const lijst = document.getElementById('mandje-lijst');
-        const sectie = document.getElementById('mandje-sectie');
-        lijst.innerHTML = '';
+    function verwijder(i) { mandje.splice(i, 1); tekenMandje(); }
+
+    function tekenMandje() {
+        const div = document.getElementById('mandje-inhoud');
+        const sectie = document.getElementById('winkelmandje');
+        div.innerHTML = '';
         let totaal = 0;
 
         mandje.forEach((item, i) => {
             totaal += item.prijs;
-            lijst.innerHTML += `<div class="mandje-item">
-                <strong>${item.naam}</strong><br><small>${item.details}</small><br>€${item.prijs.toFixed(2)}
-                <span class="remove-item" onclick="verwijder(${i})">✖</span>
+            div.innerHTML += `<div class="mandje-item">
+                <strong>${item.titel}</strong><br><small>${item.details}</small><br>€${item.prijs.toFixed(2)}
+                <span class="remove-btn" onclick="verwijder(${i})">✖</span>
             </div>`;
         });
 
-        document.getElementById('totaal').innerText = `Totaal: €${totaal.toFixed(2)}`;
+        document.getElementById('totaal-sectie').innerText = `Totaal: €${totaal.toFixed(2)}`;
         mandje.length > 0 ? sectie.classList.remove('hidden') : sectie.classList.add('hidden');
     }
 
-    function verwijder(i) { mandje.splice(i, 1); renderMandje(); }
-
-    function genereerBon() {
-        const naam = document.getElementById('klant_naam').value || "Anoniem";
+    function bouwTekst() {
+        const naam = document.getElementById('naam').value || "Klant";
         let tekst = `Bestelling van ${naam}:\n\n`;
-        mandje.forEach(item => tekst += `- ${item.naam} (${item.details}): €${item.prijs.toFixed(2)}\n`);
-        tekst += `\n${document.getElementById('totaal').innerText}`;
+        mandje.forEach(it => tekst += `- ${it.titel}: ${it.details} (€${it.prijs.toFixed(2)})\n`);
+        tekst += `\n${document.getElementById('totaal-sectie').innerText}`;
         return tekst;
     }
 
-    function verstuur(type) {
-        const msg = genereerBon();
-        if(type === 'wa') window.open(`https://wa.me/${shopData.instellingen.telefoon}?text=${encodeURIComponent(msg)}`);
-        else window.location.href = `mailto:${shopData.instellingen.email}?subject=Bestelling&body=${encodeURIComponent(msg)}`;
+    function verzend(type) {
+        const msg = bouwTekst();
+        if(type === 'wa') window.open(`https://wa.me/${data.instellingen.telefoon}?text=${encodeURIComponent(msg)}`);
+        else window.location.href = `mailto:${data.instellingen.email}?subject=Bestelling&body=${encodeURIComponent(msg)}`;
     }
 
-    function downloadPDF() {
+    function maakPDF() {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
         doc.text("WAFFLX FACTUUR", 10, 10);
-        doc.text(genereerBon(), 10, 20);
-        doc.save("Factuur.pdf");
+        doc.text(bouwTekst(), 10, 20);
+        doc.save("Wafflx_Bestelling.pdf");
     }
 </script>
 </body>
