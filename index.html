@@ -126,10 +126,13 @@
     }
 
     function verzend(type) {
-    const msg = bouwBon();
-    const inst = data.instellingen || {};
+    // Gebruik de juiste functienaam
+    const msg = bouwTekst(); 
     
-    // Check of de data wel echt uit je Firebase komt
+    // Gebruik de juiste variabele naam (shopData in plaats van data)
+    const inst = shopData.instellingen || {};
+    
+    // Haal de velden op zoals ze in je database staan[cite: 1]
     const mail = inst.email;
     const tel = inst.telefoon;
 
@@ -137,17 +140,15 @@
         if (!tel) return alert("FOUT: Geen telefoonnummer in database!");
         window.open(`https://wa.me/${tel}?text=${encodeURIComponent(msg)}`, '_blank');
     } else {
-        // De mail-fix:
         if (!mail || mail.includes("voorbeeld.nl")) {
-            return alert("FOUT: Geen geldig e-mailadres gevonden in Firebase! Check je admin-paneel.");
+            return alert("FOUT: Geen geldig e-mailadres gevonden! Pas dit aan in admin_3.html[cite: 1]");
         }
 
-        // We openen de mail nu directer om browser-blokkades te omzeilen
-        const link = `mailto:${mail}?subject=Wafflx Bestelling&body=${encodeURIComponent(msg)}`;
+        const mailtoLink = `mailto:${mail}?subject=Wafflx Bestelling&body=${encodeURIComponent(msg)}`;
         
-        // Dit is de meest brute manier om de mail-app te dwingen te openen
+        // Gebruik een onzichtbare link-klik om browser-blokkades te omzeilen
         const a = document.createElement('a');
-        a.href = link;
+        a.href = mailtoLink;
         a.click();
     }
 }
