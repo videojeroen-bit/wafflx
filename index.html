@@ -126,16 +126,30 @@
     }
 
     function verzend(type) {
-        const msg = bouwTekst();
-        const inst = shopData.instellingen || {};
-        if(type === 'wa') {
-            window.open(`https://wa.me/${inst.telefoon}?text=${encodeURIComponent(msg)}`, '_blank');
-        } else {
-            // FIX: Mailto met gegarandeerde variabelen uit Firebase[cite: 1]
-            const mailLink = `mailto:${inst.email}?subject=Nieuwe Bestelling&body=${encodeURIComponent(msg)}`;
-            window.location.href = mailLink;
-        }
+    const msg = bouwTekst();
+    const inst = shopData.instellingen || {};
+    
+    // Pak het emailadres uit Firebase, anders gebruik je een fallback zodat de knop NOOIT dood is
+    const emailAdres = inst.email || "bestelling@jouwdomein.nl"; 
+    const telefoonNummer = inst.telefoon || "";
+
+    if(type === 'wa') {
+        window.open(`https://wa.me/${telefoonNummer}?text=${encodeURIComponent(msg)}`, '_blank');
+    } else {
+        // We bouwen de link handmatig en openen hem in een nieuw venster/tab om blokkades te voorkomen
+        const mailtoLink = `mailto:${emailAdres}?subject=Nieuwe Bestelling&body=${encodeURIComponent(msg)}`;
+        
+        // Probeer eerst de directe methode
+        window.location.href = mailtoLink;
+        
+        // Fallback voor sommige mobiele browsers die location.href blokkeren
+        setTimeout(() => {
+            if (!document.hidden) {
+                window.open(mailtoLink, '_self');
+            }
+        }, 500);
     }
+}
 
     function maakPDF() {
         const { jsPDF } = window.jspdf;
