@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Wafflx Bestellen</title>
+    <title>Wafflx Bestelsysteem</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         body { font-family: sans-serif; background: #121212; color: white; padding: 20px; }
         .container { max-width: 500px; margin: auto; }
@@ -13,59 +14,52 @@
             width: 100%; padding: 12px; background: #252525; border: 1px solid #444; 
             color: white; border-radius: 8px; font-size: 1rem; margin-bottom: 10px;
         }
-        .multi-select { height: 100px; } /* Voor meerdere toppings */
-        .btn-wa { 
-            background: #27ae60; color: white; width: 100%; padding: 18px; 
-            border: none; border-radius: 10px; font-weight: bold; cursor: pointer; font-size: 1.1rem;
-        }
-        #totaal { font-size: 1.4rem; color: #f1c40f; text-align: center; margin: 15px 0; }
+        .multi-select { height: 100px; }
+        .btn { width: 100%; padding: 15px; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; margin-top: 10px; display: flex; align-items: center; justify-content: center; gap: 10px; }
+        .btn-wa { background: #27ae60; color: white; }
+        .btn-mail { background: #2980b9; color: white; }
+        .btn-pdf { background: #e67e22; color: white; }
+        #totaal { font-size: 1.4rem; color: #f1c40f; text-align: center; margin: 15px 0; font-weight: bold; }
         .hidden { display: none; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>🧇 Wafflx Bestellen</h1>
-
     <div class="step">
-        <h2>Je Naam</h2>
-        <input type="text" id="klant_naam" placeholder="Vul je naam in...">
+        <h2>Klantgegevens</h2>
+        <input type="text" id="klant_naam" placeholder="Volledige naam...">
+        <input type="email" id="klant_email" placeholder="E-mailadres...">
     </div>
 
-    <!-- STAP 1: PRODUCT -->
     <div class="step">
         <h2>1. Kies Product</h2>
         <select id="select-cat" onchange="updateMaten()">
-            <option value="">-- Maak een keuze --</option>
+            <option value="">-- Selecteer --</option>
         </select>
     </div>
 
-    <!-- STAP 2: MAAT (verschijnt na stap 1) -->
     <div id="step-maat" class="step hidden">
         <h2>2. Kies Maat</h2>
-        <select id="select-maat" onchange="updateSmaken()">
-            <option value="">-- Kies de grootte --</option>
-        </select>
+        <select id="select-maat" onchange="updateSmaken()"></select>
     </div>
 
-    <!-- STAP 3: SMAAK (verschijnt na stap 2) -->
     <div id="step-smaak" class="step hidden">
         <h2>3. Kies Smaak</h2>
-        <select id="select-smaak" onchange="updateToppings()">
-            <option value="">-- Kies een smaak --</option>
-        </select>
+        <select id="select-smaak" onchange="updateToppings()"></select>
     </div>
 
-    <!-- STAP 4: TOPPINGS (verschijnt na stap 3) -->
     <div id="step-topping" class="step hidden">
-        <h2>4. Kies Toppings (Houd CTRL ingedrukt voor meerdere)</h2>
-        <select id="select-topping" class="multi-select" multiple onchange="berekenTotaal()">
-        </select>
+        <h2>4. Extra Toppings (Houd CTRL ingedrukt)</h2>
+        <select id="select-topping" class="multi-select" multiple onchange="berekenTotaal()"></select>
     </div>
 
     <div id="final-step" class="hidden">
         <div id="totaal">Totaal: €0.00</div>
-        <button class="btn-wa" onclick="verstuurBestelling()">✅ BESTELLEN VIA WHATSAPP</button>
+        
+        <button class="btn btn-wa" onclick="stuurBestelling('wa')">💬 BESTEL VIA WHATSAPP</button>
+        <button class="btn btn-mail" onclick="stuurBestelling('mail')">📧 BESTEL VIA E-MAIL</button>
+        <button class="btn btn-pdf" onclick="downloadPDF()">📄 DOWNLOAD FACTUUR (PDF)</button>
     </div>
 </div>
 
@@ -81,7 +75,7 @@
     db.on('value', snap => {
         shopData = snap.val();
         const catSelect = document.getElementById('select-cat');
-        catSelect.innerHTML = '<option value="">-- Maak een keuze --</option>';
+        catSelect.innerHTML = '<option value="">-- Selecteer --</option>';
         shopData.assortiment.forEach((item, index) => {
             catSelect.innerHTML += `<option value="${index}">${item.categorie}</option>`;
         });
@@ -89,49 +83,34 @@
 
     function updateMaten() {
         const catIdx = document.getElementById('select-cat').value;
-        const div = document.getElementById('step-maat');
+        if(!catIdx) return;
+        document.getElementById('step-maat').classList.remove('hidden');
         const sel = document.getElementById('select-maat');
-        
-        if(!catIdx) return div.classList.add('hidden');
-        
-        div.classList.remove('hidden');
-        sel.innerHTML = '<option value="">-- Kies de grootte --</option>';
+        sel.innerHTML = '<option value="">-- Kies Maat --</option>';
         shopData.assortiment[catIdx].maten.forEach((m, i) => {
             sel.innerHTML += `<option value="${i}">${m.naam} (€${m.prijs.toFixed(2)})</option>`;
         });
-        berekenTotaal();
     }
 
     function updateSmaken() {
         const catIdx = document.getElementById('select-cat').value;
-        const maatIdx = document.getElementById('select-maat').value;
-        const div = document.getElementById('step-smaak');
+        document.getElementById('step-smaak').classList.remove('hidden');
         const sel = document.getElementById('select-smaak');
-
-        if(!maatIdx) return div.classList.add('hidden');
-
-        div.classList.remove('hidden');
-        sel.innerHTML = '<option value="">-- Kies een smaak --</option>';
-        (shopData.assortiment[catIdx].smaken || []).forEach((s, i) => {
+        sel.innerHTML = '<option value="">-- Kies Smaak --</option>';
+        shopData.assortiment[catIdx].smaken.forEach((s, i) => {
             sel.innerHTML += `<option value="${i}">${s.naam} (+€${s.prijs.toFixed(2)})</option>`;
         });
-        berekenTotaal();
     }
 
     function updateToppings() {
         const catIdx = document.getElementById('select-cat').value;
-        const smaakIdx = document.getElementById('select-smaak').value;
-        const div = document.getElementById('step-topping');
+        document.getElementById('step-topping').classList.remove('hidden');
+        document.getElementById('final-step').classList.remove('hidden');
         const sel = document.getElementById('select-topping');
-
-        if(!smaakIdx) return div.classList.add('hidden');
-
-        div.classList.remove('hidden');
         sel.innerHTML = '';
-        (shopData.assortiment[catIdx].toppings || []).forEach((t, i) => {
+        shopData.assortiment[catIdx].toppings.forEach((t, i) => {
             sel.innerHTML += `<option value="${i}">${t.naam} (+€${t.prijs.toFixed(2)})</option>`;
         });
-        document.getElementById('final-step').classList.remove('hidden');
         berekenTotaal();
     }
 
@@ -141,32 +120,43 @@
         const smaakIdx = document.getElementById('select-smaak').value;
         const toppingSel = document.getElementById('select-topping');
 
-        if(!maatIdx) return;
-
         let totaal = shopData.assortiment[catIdx].maten[maatIdx].prijs;
         if(smaakIdx) totaal += shopData.assortiment[catIdx].smaken[smaakIdx].prijs;
-        
         Array.from(toppingSel.selectedOptions).forEach(opt => {
             totaal += shopData.assortiment[catIdx].toppings[opt.value].prijs;
         });
-
         document.getElementById('totaal').innerText = `Totaal: €${totaal.toFixed(2)}`;
+        return totaal;
     }
 
-    function verstuurBestelling() {
+    function genereerTekst() {
         const naam = document.getElementById('klant_naam').value;
-        if(!naam) return alert("Vul je naam in!");
-
         const cat = shopData.assortiment[document.getElementById('select-cat').value];
         const maat = cat.maten[document.getElementById('select-maat').value];
         const smaak = cat.smaken[document.getElementById('select-smaak').value];
         const toppings = Array.from(document.getElementById('select-topping').selectedOptions).map(o => cat.toppings[o.value].naam);
-
+        
         let msg = `Bestelling van ${naam}:\n- ${cat.categorie}\n- Maat: ${maat.naam}\n- Smaak: ${smaak.naam}`;
         if(toppings.length > 0) msg += `\n- Toppings: ${toppings.join(', ')}`;
-        msg += `\n\n${document.getElementById('totaal').innerText}`;
+        msg += `\n\nTotaal: €${berekenTotaal().toFixed(2)}`;
+        return msg;
+    }
 
-        window.open(`https://wa.me/${shopData.instellingen.telefoon}?text=${encodeURIComponent(msg)}`);
+    function stuurBestelling(type) {
+        const msg = genereerTekst();
+        if(type === 'wa') {
+            window.open(`https://wa.me/${shopData.instellingen.telefoon}?text=${encodeURIComponent(msg)}`);
+        } else {
+            window.location.href = `mailto:${shopData.instellingen.email}?subject=Nieuwe Bestelling&body=${encodeURIComponent(msg)}`;
+        }
+    }
+
+    function downloadPDF() {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        doc.text("WAFFLX FACTUUR", 10, 10);
+        doc.text(genereerTekst(), 10, 20);
+        doc.save(`Factuur_Wafflx.pdf`);
     }
 </script>
 </body>
