@@ -3,61 +3,70 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Wafflx - Bestellen</title>
+    <title>Wafflx Bestellen</title>
     <style>
-        :root { --accent: #f1c40f; --bg: #121212; --card: #1e1e1e; }
-        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: white; margin: 0; padding: 20px; }
-        .container { max-width: 800px; margin: auto; }
-        .step { background: var(--card); padding: 20px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #333; }
-        h2 { color: var(--accent); margin-top: 0; font-size: 1.2rem; }
-        
-        /* De interactieve knoppen */
-        .option-grid { display: grid; gap: 10px; }
-        .opt { 
-            background: #252525; padding: 15px; border-radius: 8px; cursor: pointer;
-            display: flex; justify-content: space-between; border: 2px solid transparent; transition: 0.2s;
+        body { font-family: sans-serif; background: #121212; color: white; padding: 20px; }
+        .container { max-width: 500px; margin: auto; }
+        .step { background: #1e1e1e; padding: 20px; border-radius: 12px; margin-bottom: 15px; border: 1px solid #333; }
+        h2 { color: #f1c40f; font-size: 1rem; margin-bottom: 10px; }
+        select, input { 
+            width: 100%; padding: 12px; background: #252525; border: 1px solid #444; 
+            color: white; border-radius: 8px; font-size: 1rem; margin-bottom: 10px;
         }
-        .opt:hover { background: #333; }
-        .opt.selected { border-color: var(--accent); background: #2c2810; }
-        .price { color: var(--accent); font-weight: bold; }
-        
-        .btn-order { 
-            background: var(--accent); color: black; width: 100%; padding: 20px; 
-            border: none; border-radius: 12px; font-size: 1.3rem; font-weight: bold; cursor: pointer; 
+        .multi-select { height: 100px; } /* Voor meerdere toppings */
+        .btn-wa { 
+            background: #27ae60; color: white; width: 100%; padding: 18px; 
+            border: none; border-radius: 10px; font-weight: bold; cursor: pointer; font-size: 1.1rem;
         }
-        input { 
-            width: 100%; padding: 12px; margin-bottom: 10px; background: #252525; 
-            border: 1px solid #444; color: white; border-radius: 6px; box-sizing: border-box;
-        }
+        #totaal { font-size: 1.4rem; color: #f1c40f; text-align: center; margin: 15px 0; }
+        .hidden { display: none; }
     </style>
 </head>
 <body>
 
 <div class="container">
+    <h1>🧇 Wafflx Bestellen</h1>
+
     <div class="step">
-        <h2>Klantgegevens</h2>
-        <input type="text" id="klant_naam" placeholder="Je naam...">
-        <input type="text" id="klant_tel" placeholder="Je telefoonnummer...">
+        <h2>Je Naam</h2>
+        <input type="text" id="klant_naam" placeholder="Vul je naam in...">
     </div>
 
-    <div id="producten-lijst"></div>
-
-    <div id="opties-sectie" style="display:none;">
-        <div class="step">
-            <h2>1. Kies je Maat</h2>
-            <div id="maten-grid" class="option-grid"></div>
-        </div>
-        <div class="step">
-            <h2>2. Kies je Smaak</h2>
-            <div id="smaken-grid" class="option-grid"></div>
-        </div>
-        <div class="step">
-            <h2>3. Extra Toppings</h2>
-            <div id="toppings-grid" class="option-grid"></div>
-        </div>
+    <!-- STAP 1: PRODUCT -->
+    <div class="step">
+        <h2>1. Kies Product</h2>
+        <select id="select-cat" onchange="updateMaten()">
+            <option value="">-- Maak een keuze --</option>
+        </select>
     </div>
 
-    <button class="btn-order" onclick="verstuurBestelling()">🛒 BESTELLING OPSTUREN</button>
+    <!-- STAP 2: MAAT (verschijnt na stap 1) -->
+    <div id="step-maat" class="step hidden">
+        <h2>2. Kies Maat</h2>
+        <select id="select-maat" onchange="updateSmaken()">
+            <option value="">-- Kies de grootte --</option>
+        </select>
+    </div>
+
+    <!-- STAP 3: SMAAK (verschijnt na stap 2) -->
+    <div id="step-smaak" class="step hidden">
+        <h2>3. Kies Smaak</h2>
+        <select id="select-smaak" onchange="updateToppings()">
+            <option value="">-- Kies een smaak --</option>
+        </select>
+    </div>
+
+    <!-- STAP 4: TOPPINGS (verschijnt na stap 3) -->
+    <div id="step-topping" class="step hidden">
+        <h2>4. Kies Toppings (Houd CTRL ingedrukt voor meerdere)</h2>
+        <select id="select-topping" class="multi-select" multiple onchange="berekenTotaal()">
+        </select>
+    </div>
+
+    <div id="final-step" class="hidden">
+        <div id="totaal">Totaal: €0.00</div>
+        <button class="btn-wa" onclick="verstuurBestelling()">✅ BESTELLEN VIA WHATSAPP</button>
+    </div>
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
@@ -68,94 +77,97 @@
     const db = firebase.database().ref('/');
 
     let shopData = {};
-    let selectie = { categorie: null, maat: null, smaak: null, toppings: [] };
 
     db.on('value', snap => {
         shopData = snap.val();
-        renderCats();
+        const catSelect = document.getElementById('select-cat');
+        catSelect.innerHTML = '<option value="">-- Maak een keuze --</option>';
+        shopData.assortiment.forEach((item, index) => {
+            catSelect.innerHTML += `<option value="${index}">${item.categorie}</option>`;
+        });
     });
 
-    function renderCats() {
-        const cont = document.getElementById('producten-lijst');
-        cont.innerHTML = '<div class="step"><h2>Product selecteren</h2><div class="option-grid" id="cat-grid"></div></div>';
-        const grid = document.getElementById('cat-grid');
+    function updateMaten() {
+        const catIdx = document.getElementById('select-cat').value;
+        const div = document.getElementById('step-maat');
+        const sel = document.getElementById('select-maat');
         
-        shopData.assortiment.forEach((cat, idx) => {
-            const div = document.createElement('div');
-            div.className = 'opt' + (selectie.categorie === idx ? ' selected' : '');
-            div.innerHTML = `<span>${cat.categorie}</span>`;
-            div.onclick = () => selectCat(idx);
-            grid.appendChild(div);
+        if(!catIdx) return div.classList.add('hidden');
+        
+        div.classList.remove('hidden');
+        sel.innerHTML = '<option value="">-- Kies de grootte --</option>';
+        shopData.assortiment[catIdx].maten.forEach((m, i) => {
+            sel.innerHTML += `<option value="${i}">${m.naam} (€${m.prijs.toFixed(2)})</option>`;
         });
+        berekenTotaal();
     }
 
-    function selectCat(idx) {
-        selectie = { categorie: idx, maat: null, smaak: null, toppings: [] };
-        document.getElementById('opties-sectie').style.display = 'block';
-        renderOptions();
-        renderCats();
+    function updateSmaken() {
+        const catIdx = document.getElementById('select-cat').value;
+        const maatIdx = document.getElementById('select-maat').value;
+        const div = document.getElementById('step-smaak');
+        const sel = document.getElementById('select-smaak');
+
+        if(!maatIdx) return div.classList.add('hidden');
+
+        div.classList.remove('hidden');
+        sel.innerHTML = '<option value="">-- Kies een smaak --</option>';
+        (shopData.assortiment[catIdx].smaken || []).forEach((s, i) => {
+            sel.innerHTML += `<option value="${i}">${s.naam} (+€${s.prijs.toFixed(2)})</option>`;
+        });
+        berekenTotaal();
     }
 
-    function renderOptions() {
-        const cat = shopData.assortiment[selectie.categorie];
+    function updateToppings() {
+        const catIdx = document.getElementById('select-cat').value;
+        const smaakIdx = document.getElementById('select-smaak').value;
+        const div = document.getElementById('step-topping');
+        const sel = document.getElementById('select-topping');
+
+        if(!smaakIdx) return div.classList.add('hidden');
+
+        div.classList.remove('hidden');
+        sel.innerHTML = '';
+        (shopData.assortiment[catIdx].toppings || []).forEach((t, i) => {
+            sel.innerHTML += `<option value="${i}">${t.naam} (+€${t.prijs.toFixed(2)})</option>`;
+        });
+        document.getElementById('final-step').classList.remove('hidden');
+        berekenTotaal();
+    }
+
+    function berekenTotaal() {
+        const catIdx = document.getElementById('select-cat').value;
+        const maatIdx = document.getElementById('select-maat').value;
+        const smaakIdx = document.getElementById('select-smaak').value;
+        const toppingSel = document.getElementById('select-topping');
+
+        if(!maatIdx) return;
+
+        let totaal = shopData.assortiment[catIdx].maten[maatIdx].prijs;
+        if(smaakIdx) totaal += shopData.assortiment[catIdx].smaken[smaakIdx].prijs;
         
-        // Maten
-        const mGrid = document.getElementById('maten-grid');
-        mGrid.innerHTML = '';
-        cat.maten.forEach(m => {
-            const div = document.createElement('div');
-            div.className = 'opt' + (selectie.maat?.naam === m.naam ? ' selected' : '');
-            div.innerHTML = `<span>${m.naam}</span><span class="price">€${m.prijs.toFixed(2)}</span>`;
-            div.onclick = () => { selectie.maat = m; renderOptions(); };
-            mGrid.appendChild(div);
+        Array.from(toppingSel.selectedOptions).forEach(opt => {
+            totaal += shopData.assortiment[catIdx].toppings[opt.value].prijs;
         });
 
-        // Smaken
-        const sGrid = document.getElementById('smaken-grid');
-        sGrid.innerHTML = '';
-        (cat.smaken || []).forEach(s => {
-            const div = document.createElement('div');
-            div.className = 'opt' + (selectie.smaak?.naam === s.naam ? ' selected' : '');
-            div.innerHTML = `<span>${s.naam}</span><span class="price">+ €${s.prijs.toFixed(2)}</span>`;
-            div.onclick = () => { selectie.smaak = s; renderOptions(); };
-            sGrid.appendChild(div);
-        });
-
-        // Toppings (Meerdere keuzes mogelijk)
-        const tGrid = document.getElementById('toppings-grid');
-        tGrid.innerHTML = '';
-        (cat.toppings || []).forEach(t => {
-            const isSel = selectie.toppings.find(x => x.naam === t.naam);
-            const div = document.createElement('div');
-            div.className = 'opt' + (isSel ? ' selected' : '');
-            div.innerHTML = `<span>${t.naam}</span><span class="price">+ €${t.prijs.toFixed(2)}</span>`;
-            div.onclick = () => {
-                if(isSel) selectie.toppings = selectie.toppings.filter(x => x.naam !== t.naam);
-                else selectie.toppings.push(t);
-                renderOptions();
-            };
-            tGrid.appendChild(div);
-        });
+        document.getElementById('totaal').innerText = `Totaal: €${totaal.toFixed(2)}`;
     }
 
     function verstuurBestelling() {
-        if(!selectie.maat) return alert("Kies eerst een maat!");
         const naam = document.getElementById('klant_naam').value;
         if(!naam) return alert("Vul je naam in!");
 
-        let totaal = selectie.maat.prijs + (selectie.smaak?.prijs || 0);
-        selectie.toppings.forEach(t => totaal += t.prijs);
+        const cat = shopData.assortiment[document.getElementById('select-cat').value];
+        const maat = cat.maten[document.getElementById('select-maat').value];
+        const smaak = cat.smaken[document.getElementById('select-smaak').value];
+        const toppings = Array.from(document.getElementById('select-topping').selectedOptions).map(o => cat.toppings[o.value].naam);
 
-        let tekst = `Hallo ${shopData.instellingen.winkel},\n\nBestelling van ${naam}:\n`;
-        tekst += `- ${shopData.assortiment[selectie.categorie].categorie} (${selectie.maat.naam})\n`;
-        if(selectie.smaak) tekst += `- Smaak: ${selectie.smaak.naam}\n`;
-        if(selectie.toppings.length > 0) tekst += `- Toppings: ${selectie.toppings.map(t => t.naam).join(', ')}\n`;
-        tekst += `\nTotaalbedrag: €${totaal.toFixed(2)}`;
+        let msg = `Bestelling van ${naam}:\n- ${cat.categorie}\n- Maat: ${maat.naam}\n- Smaak: ${smaak.naam}`;
+        if(toppings.length > 0) msg += `\n- Toppings: ${toppings.join(', ')}`;
+        msg += `\n\n${document.getElementById('totaal').innerText}`;
 
-        const url = `https://wa.me/${shopData.instellingen.telefoon}?text=${encodeURIComponent(tekst)}`;
-        window.open(url, '_blank');
+        window.open(`https://wa.me/${shopData.instellingen.telefoon}?text=${encodeURIComponent(msg)}`);
     }
 </script>
-
 </body>
 </html>
